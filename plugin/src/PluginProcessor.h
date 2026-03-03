@@ -1,28 +1,22 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "dsp/GainProcessor.h"
+#include "dsp/ThroughZeroFlanger.h"
 
-//==============================================================================
-// TODO: Rename this class to match your plugin
-//==============================================================================
-class MyPluginProcessor : public juce::AudioProcessor
+class HendrixFlangerProcessor : public juce::AudioProcessor
 {
 public:
-    MyPluginProcessor();
-    ~MyPluginProcessor() override;
+    HendrixFlangerProcessor();
+    ~HendrixFlangerProcessor() override;
 
-    // --- AudioProcessor interface ---
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
-    // --- Editor ---
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    // --- Program / state ---
     const juce::String getName() const override { return JucePlugin_Name; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
@@ -36,16 +30,13 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // --- Parameter access ---
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
 private:
-    // Parameter tree
     juce::AudioProcessorValueTreeState apvts;
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    // DSP modules — add yours here
-    GainProcessor gainProcessor;
+    ThroughZeroFlanger flanger;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MyPluginProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HendrixFlangerProcessor)
 };

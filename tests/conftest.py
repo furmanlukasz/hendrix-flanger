@@ -1,5 +1,5 @@
 """
-Shared fixtures for VST3 plugin tests.
+Shared fixtures for Hendrix Flanger VST3 plugin tests.
 
 All signal fixtures are deterministic (exact math or seeded RNG).
 The plugin fixture loads the actual built VST3 binary via pedalboard.
@@ -11,13 +11,13 @@ import numpy as np
 
 
 # ---------------------------------------------------------------------------
-# Constants — TODO: update VST3_PATH to match your PRODUCT_NAME
+# Constants
 # ---------------------------------------------------------------------------
 
 SR = 44100
 DURATION = 1.0
 VST3_PATH = os.path.expanduser(
-    "~/Library/Audio/Plug-Ins/VST3/My Plugin.vst3"
+    "~/Library/Audio/Plug-Ins/VST3/Hendrix Flanger.vst3"
 )
 
 
@@ -96,6 +96,16 @@ def dc_offset():
     return np.full(int(SR * DURATION), 0.5, dtype=np.float32)
 
 
+@pytest.fixture()
+def sweep():
+    """Linear chirp from 20 Hz to 20 kHz, 2 seconds."""
+    from scipy.signal import chirp
+
+    dur = 2.0
+    t = np.arange(int(SR * dur)) / SR
+    return chirp(t, f0=20, f1=20000, t1=dur, method="linear").astype(np.float32)
+
+
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
@@ -123,6 +133,28 @@ def has_nan_or_inf(signal: np.ndarray) -> bool:
     return bool(np.any(np.isnan(signal)) or np.any(np.isinf(signal)))
 
 
+def energy_ratio_db(output: np.ndarray, input_sig: np.ndarray) -> float:
+    """Energy change in dB between output and input."""
+    return rms_db(output) - rms_db(input_sig)
+
+
+def dc_component_db(signal: np.ndarray) -> float:
+    """DC component level in dB."""
+    dc = np.abs(np.mean(signal.astype(np.float64)))
+    if dc < 1e-20:
+        return -200.0
+    return float(20 * np.log10(dc))
+
+
+def spectral_energy_in_band(signal: np.ndarray, low_hz: float, high_hz: float,
+                             sr: int = SR) -> float:
+    """Sum of squared FFT magnitudes in a frequency band."""
+    spectrum = np.abs(np.fft.rfft(signal.astype(np.float64)))
+    freqs = np.fft.rfftfreq(len(signal), 1.0 / sr)
+    mask = (freqs >= low_hz) & (freqs <= high_hz)
+    return float(np.sum(spectrum[mask] ** 2))
+
+
 def process_with_params(plugin, signal: np.ndarray, sr: int = SR, **params) -> np.ndarray:
     """Process a signal through the plugin with given parameters.
 
@@ -142,4 +174,20 @@ def process_with_params(plugin, signal: np.ndarray, sr: int = SR, **params) -> n
 
     if output.ndim == 2:
         return output[0]
+    return output
+
+
+def process_stereo(plugin, signal: np.ndarray, sr: int = SR, **params) -> np.ndarray:
+    """Process and return both channels as (2, N) array."""
+    plugin.reset()
+
+    for name, value in params.items():
+        setattr(plugin, name, value)
+
+    if signal.ndim == 1:
+        audio = np.stack([signal, signal])
+    else:
+        audio = signal
+
+    output = plugin.process(audio, sample_rate=float(sr))
     return output

@@ -1,7 +1,7 @@
 [project]
-name = "my-plugin-tests"
+name = "hendrix-flanger-tests"
 version = "0.1.0"
-description = "Test suite for My Plugin VST3"
+description = "Test suite for Hendrix Flanger VST3"
 requires-python = ">=3.11"
 
 dependencies = [

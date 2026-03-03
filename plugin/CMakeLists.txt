@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-# =============================================================================
-# TODO: Change these for your plugin
-# =============================================================================
-project(MyPlugin VERSION 0.1.0)
+project(HendrixFlanger VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,7 +13,7 @@ if(APPLE)
 endif()
 
 # ---------------------------------------------------------------------------
-# Fetch JUCE (pinned to 8.0.4 — update as needed)
+# Fetch JUCE (pinned to 8.0.4)
 # ---------------------------------------------------------------------------
 include(FetchContent)
 
@@ -30,29 +27,28 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 # ---------------------------------------------------------------------------
-# Plugin sources — add your DSP modules here
+# Plugin sources
 # ---------------------------------------------------------------------------
 set(PLUGIN_SOURCES
     src/PluginProcessor.cpp
     src/PluginProcessor.h
     src/PluginEditor.cpp
     src/PluginEditor.h
-    # DSP modules (add yours below)
-    src/dsp/GainProcessor.h
+    src/dsp/DelayLine.h
+    src/dsp/LFO.h
+    src/dsp/EnvelopeFollower.h
+    src/dsp/ThroughZeroFlanger.h
 )
 
-# =============================================================================
-# TODO: Customise all fields below for your plugin
-# =============================================================================
-juce_add_plugin(MyPlugin
-    COMPANY_NAME           "MyCompany"
-    BUNDLE_ID              "com.mycompany.myplugin"
-    PLUGIN_MANUFACTURER_CODE Myco          # 4-char manufacturer code
-    PLUGIN_CODE            Mypl            # 4-char plugin code
+juce_add_plugin(HendrixFlanger
+    COMPANY_NAME           "FurmanAudio"
+    BUNDLE_ID              "com.furmanaudio.hendrixflanger"
+    PLUGIN_MANUFACTURER_CODE Furm
+    PLUGIN_CODE            HxFl
 
-    FORMATS AU VST3 Standalone             # Add AUv3 for iOS
+    FORMATS AU VST3 Standalone
 
-    PRODUCT_NAME "My Plugin"               # Name shown in DAW
+    PRODUCT_NAME "Hendrix Flanger"
 
     IS_SYNTH                FALSE
     NEEDS_MIDI_INPUT        FALSE
@@ -60,18 +56,17 @@ juce_add_plugin(MyPlugin
     IS_MIDI_EFFECT          FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
 
-    PLUGIN_AU_EXPORT_PREFIX MyPluginAU
+    PLUGIN_AU_EXPORT_PREFIX HendrixFlangerAU
     AU_MAIN_TYPE            kAudioUnitType_Effect
 
-    # Auto-install to system plugin folder after build (handy for testing)
     COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
-juce_generate_juce_header(MyPlugin)
+juce_generate_juce_header(HendrixFlanger)
 
-target_sources(MyPlugin PRIVATE ${PLUGIN_SOURCES})
+target_sources(HendrixFlanger PRIVATE ${PLUGIN_SOURCES})
 
-target_compile_definitions(MyPlugin
+target_compile_definitions(HendrixFlanger
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
@@ -79,7 +74,7 @@ target_compile_definitions(MyPlugin
         JUCE_DISPLAY_SPLASH_SCREEN=0
 )
 
-target_link_libraries(MyPlugin
+target_link_libraries(HendrixFlanger
     PRIVATE
         juce::juce_audio_utils
         juce::juce_dsp
@@ -89,9 +84,8 @@ target_link_libraries(MyPlugin
         juce::juce_recommended_warning_flags
 )
 
-# Compiler warnings
 if(MSVC)
-    target_compile_options(MyPlugin PRIVATE /W4)
+    target_compile_options(HendrixFlanger PRIVATE /W4)
 else()
-    target_compile_options(MyPlugin PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(HendrixFlanger PRIVATE -Wall -Wextra -Wpedantic)
 endif()

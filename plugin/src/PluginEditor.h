@@ -2,30 +2,38 @@
 
 #include "PluginProcessor.h"
 
-//==============================================================================
-class MyPluginEditor : public juce::AudioProcessorEditor
+class HendrixFlangerEditor : public juce::AudioProcessorEditor
 {
 public:
-    explicit MyPluginEditor(MyPluginProcessor&);
-    ~MyPluginEditor() override;
+    explicit HendrixFlangerEditor(HendrixFlangerProcessor&);
+    ~HendrixFlangerEditor() override;
 
     void paint(juce::Graphics&) override;
     void resized() override;
 
 private:
-    MyPluginProcessor& processorRef;
+    HendrixFlangerProcessor& processorRef;
 
-    // UI controls — add yours here
-    juce::Slider gainSlider;
-    juce::Label  gainLabel;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> gainAttachment;
+    // --- Knobs ---
+    juce::Slider rateSlider, depthSlider, manualSlider;
+    juce::Slider feedbackSlider, stereoSlider, mixSlider;
+    juce::Slider envSlider;
 
-    juce::Slider dryWetSlider;
-    juce::Label  dryWetLabel;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> dryWetAttachment;
+    juce::Label rateLabel, depthLabel, manualLabel;
+    juce::Label feedbackLabel, stereoLabel, mixLabel;
+    juce::Label envLabel;
 
-    juce::ToggleButton bypassButton { "Bypass" };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
+    // --- Toggles / Combos ---
+    juce::ToggleButton throughZeroButton { "Through Zero" };
+    juce::ComboBox lfoShapeBox;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MyPluginEditor)
+    // --- Attachments ---
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        rateAtt, depthAtt, manualAtt, feedbackAtt, stereoAtt, mixAtt, envAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> tzAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfoShapeAtt;
+
+    void setupSlider(juce::Slider& slider, juce::Label& label, const juce::String& text);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HendrixFlangerEditor)
 };

@@ -1,78 +1,73 @@
-# JUCE VST3/AU Plugin Template
+# Hendrix Flanger
 
-A production-ready template for building cross-platform audio plugins using **JUCE 8.0.4**, **C++20**, and **CMake**. Includes a Python test harness powered by Spotify's [pedalboard](https://github.com/spotify/pedalboard).
+A through-zero flanger VST3/AU plugin inspired by the tape flanging techniques used on classic Jimi Hendrix recordings. Built with **JUCE 8.0.4**, **C++20**, and **CMake**.
 
-## What's included
+## The Effect
 
-- **Plugin scaffold** — PluginProcessor, PluginEditor, example DSP module with APVTS parameter management
-- **CMake build** — JUCE fetched via FetchContent (no submodules), universal macOS binary, auto-install after build
-- **Test suite** — 4 tiers of deterministic tests using pedalboard to load the actual VST3 binary
-- **CI/CD** — GitHub Actions for macOS (universal) + Windows builds
+Through-zero flanging replicates the studio tape technique where two identical tape recordings are played simultaneously with one slightly varied in speed. When the delayed signal crosses through zero delay, deep phase cancellations produce the characteristic "jet engine" sweep heard on tracks like *Bold as Love* and *Voodoo Child (Slight Return)*.
 
-## Quick start
+## Features
+
+- **Through-Zero Flanging** — sweeps delay through zero for deep cancellations
+- **Positive & Negative Feedback** — metallic resonance or hollow Hendrix-style notches
+- **Stereo Spread** — LFO phase offset between L/R for wide stereo movement
+- **Envelope Follower** — dynamic modulation from input signal level
+- **3 LFO Shapes** — Sine, Triangle, Sample & Hold
+
+## Parameters
+
+| Parameter | Range | Default | Description |
+|-----------|-------|---------|-------------|
+| Speed | 0.05–10 Hz | 0.5 Hz | LFO rate |
+| Depth | 0–100% | 50% | Sweep width |
+| Manual | 0–10 ms | 3 ms | Base delay |
+| Feedback | -95 to +95% | 30% | Regeneration |
+| Stereo | 0–180 deg | 90 deg | L/R phase offset |
+| Through Zero | on/off | on | TZF mode |
+| Envelope | 0–100% | 0% | Env follower depth |
+| LFO Shape | Sine/Tri/S&H | Sine | Waveform |
+| Mix | 0–100% | 50% | Dry/wet blend |
+
+## Build
 
 ```bash
-# 1. Clone and rename
-gh repo create my-awesome-plugin --template furmanlukasz/juce-vst-template --private --clone
-cd my-awesome-plugin
-
-# 2. Customise plugin identity (search for "TODO" in plugin/CMakeLists.txt)
-#    - PRODUCT_NAME, COMPANY_NAME, BUNDLE_ID
-#    - PLUGIN_MANUFACTURER_CODE, PLUGIN_CODE
-
-# 3. Build
 cd plugin
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_SYSROOT="$(xcrun --show-sdk-path)"
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
+```
 
-# 4. Test
-cd ..
+The VST3 and AU are auto-installed to your system plugin folders.
+
+## Test
+
+```bash
 pip install pedalboard pytest scipy numpy
-# Update tests/conftest.py line 19: VST3_PATH to match your PRODUCT_NAME
 pytest tests/ -v
 ```
 
-## Project structure
+Tests load the **actual built VST3** via Spotify's pedalboard — no mocks.
+
+## Project Structure
 
 ```
 plugin/
-  CMakeLists.txt              # JUCE 8.0.4 via FetchContent
+  CMakeLists.txt
   src/
-    PluginProcessor.cpp/h     # Audio processing + parameters
-    PluginEditor.cpp/h        # GUI
+    PluginProcessor.cpp/h
+    PluginEditor.cpp/h
     dsp/
-      GainProcessor.h         # Example DSP module (replace with yours)
+      DelayLine.h
+      LFO.h
+      EnvelopeFollower.h
+      ThroughZeroFlanger.h
 tests/
-  conftest.py                 # Plugin loader + signal fixtures
-  test_plugin_basic.py        # Tier 1: load, bypass, silence, safety
-  test_plugin_edge_cases.py   # Tier 3: sample rates, block sizes, extremes
-  test_plugin_quality_gates.py # Tier 4: release criteria
-.github/workflows/
-  build.yml                   # CI: macOS + Windows
+  conftest.py
+  test_plugin_basic.py
+  test_plugin_flanger.py
+  test_plugin_signals.py
+  test_plugin_edge_cases.py
+  test_plugin_quality_gates.py
 ```
-
-## Adding DSP modules
-
-1. Create `plugin/src/dsp/YourModule.h` (and optionally `.cpp`)
-2. Add it to `PLUGIN_SOURCES` in `plugin/CMakeLists.txt`
-3. Include and use it in `PluginProcessor.h/cpp`
-4. Add corresponding tests in `tests/`
-
-## Test tiers
-
-| Tier | File | Purpose |
-|------|------|---------|
-| 1 | `test_plugin_basic.py` | Plugin loads, bypass works, no NaN/Inf |
-| 2 | *(add your own)* | Feature-specific accuracy tests |
-| 3 | `test_plugin_edge_cases.py` | Extreme params, sample rates, block sizes |
-| 4 | `test_plugin_quality_gates.py` | Release gates: SNR, ceiling, stereo balance |
-
-## Prerequisites
-
-- CMake 3.22+
-- C++20 compiler (Xcode CLT on macOS, MSVC on Windows)
-- Python 3.11+ (for tests)
-- Git
 
 ## License
 
