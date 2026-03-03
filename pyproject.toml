@@ -1,0 +1,28 @@
+[project]
+name = "my-plugin-tests"
+version = "0.1.0"
+description = "Test suite for My Plugin VST3"
+requires-python = ">=3.11"
+
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    "pedalboard>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests",
+]
