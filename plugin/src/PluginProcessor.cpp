@@ -83,12 +83,89 @@ HendrixFlangerProcessor::createParameterLayout()
         50.0f,
         juce::AudioParameterFloatAttributes().withLabel("%")));
 
+    // --- Dub Echo parameters ---
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"dub_enabled", 1},
+        "Dub Echo",
+        false));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_echo", 1},
+        "Echo",
+        juce::NormalisableRange<float>(0.0f, 1000.0f, 0.1f, 0.5f),
+        300.0f,
+        juce::AudioParameterFloatAttributes().withLabel("ms")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_reverb", 1},
+        "Reverb",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        30.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_feedback", 1},
+        "Dub Feedback",
+        juce::NormalisableRange<float>(0.0f, 95.0f, 0.1f),
+        40.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_offset", 1},
+        "Offset",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        50.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_autopan", 1},
+        "Autopan",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_fullness", 1},
+        "Fullness",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        20.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_space", 1},
+        "Space",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        40.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_dry", 1},
+        "Dub Dry",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        100.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_wet", 1},
+        "Dub Wet",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        50.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"dub_volume", 1},
+        "Dub Volume",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        80.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
     return { params.begin(), params.end() };
 }
 
 void HendrixFlangerProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     flanger.prepare(sampleRate, samplesPerBlock);
+    dubEcho.prepare(sampleRate, samplesPerBlock);
 
     // Pre-allocate dry buffer so processBlock never touches the heap
     dryBuffer.setSize(2, samplesPerBlock, false, false, true);
@@ -104,6 +181,7 @@ void HendrixFlangerProcessor::releaseResources() {}
 void HendrixFlangerProcessor::reset()
 {
     flanger.reset();
+    dubEcho.reset();
     dryWetNeedsSnap = true;
 }
 
@@ -130,7 +208,7 @@ void HendrixFlangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // Read parameters
+    // Read flanger parameters
     float rateHz      = apvts.getRawParameterValue("rate_hz")->load();
     float depth       = apvts.getRawParameterValue("depth")->load();
     float manualMs    = apvts.getRawParameterValue("manual_ms")->load();
@@ -141,6 +219,19 @@ void HendrixFlangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     int   lfoShape    = static_cast<int>(apvts.getRawParameterValue("lfo_shape")->load());
     float warmthPct   = apvts.getRawParameterValue("warmth")->load();
     float dryWetTarget = apvts.getRawParameterValue("dry_wet")->load() / 100.0f;
+
+    // Read dub echo parameters
+    bool  dubEnabled     = apvts.getRawParameterValue("dub_enabled")->load() > 0.5f;
+    float dubEchoMs      = apvts.getRawParameterValue("dub_echo")->load();
+    float dubReverbPct   = apvts.getRawParameterValue("dub_reverb")->load();
+    float dubFeedbackPct = apvts.getRawParameterValue("dub_feedback")->load();
+    float dubOffsetPct   = apvts.getRawParameterValue("dub_offset")->load();
+    float dubAutopanPct  = apvts.getRawParameterValue("dub_autopan")->load();
+    float dubFullnessPct = apvts.getRawParameterValue("dub_fullness")->load();
+    float dubSpacePct    = apvts.getRawParameterValue("dub_space")->load();
+    float dubDryPct      = apvts.getRawParameterValue("dub_dry")->load();
+    float dubWetPct      = apvts.getRawParameterValue("dub_wet")->load();
+    float dubVolumePct   = apvts.getRawParameterValue("dub_volume")->load();
 
     // Update flanger parameters
     flanger.setRate(rateHz);
@@ -153,12 +244,28 @@ void HendrixFlangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     flanger.setLfoShape(lfoShape);
     flanger.setWarmth(warmthPct);
 
+    // Update dub echo parameters
+    dubEcho.setEcho(dubEchoMs);
+    dubEcho.setReverb(dubReverbPct);
+    dubEcho.setFeedback(dubFeedbackPct);
+    dubEcho.setOffset(dubOffsetPct);
+    dubEcho.setAutopan(dubAutopanPct);
+    dubEcho.setFullness(dubFullnessPct);
+    dubEcho.setSpace(dubSpacePct);
+    dubEcho.setDry(dubDryPct);
+    dubEcho.setWet(dubWetPct);
+    dubEcho.setVolume(dubVolumePct);
+
     // Snap dry/wet smoothing after reset (deferred so target is current)
     if (dryWetNeedsSnap)
     {
         smoothedDryWet = dryWetTarget;
         dryWetNeedsSnap = false;
     }
+
+    // Dub Echo processes BEFORE flanger (when enabled)
+    if (dubEnabled)
+        dubEcho.process(buffer);
 
     // Store dry signal for mix (uses pre-allocated buffer — no heap alloc)
     int numCh = buffer.getNumChannels();
@@ -238,6 +345,31 @@ void HendrixFlangerProcessor::setCurrentProgram(int index)
     shape->setValueNotifyingHost(shape->convertTo0to1(static_cast<float>(p.lfo_shape)));
     warm->setValueNotifyingHost(warm->convertTo0to1(p.warmth));
     mix->setValueNotifyingHost(mix->convertTo0to1(p.dry_wet));
+
+    // Dub Echo preset params
+    auto* dubEn   = apvts.getParameter("dub_enabled");
+    auto* dubEc   = apvts.getParameter("dub_echo");
+    auto* dubRv   = apvts.getParameter("dub_reverb");
+    auto* dubFb   = apvts.getParameter("dub_feedback");
+    auto* dubOf   = apvts.getParameter("dub_offset");
+    auto* dubAp   = apvts.getParameter("dub_autopan");
+    auto* dubFl   = apvts.getParameter("dub_fullness");
+    auto* dubSp   = apvts.getParameter("dub_space");
+    auto* dubDr   = apvts.getParameter("dub_dry");
+    auto* dubWt   = apvts.getParameter("dub_wet");
+    auto* dubVl   = apvts.getParameter("dub_volume");
+
+    dubEn->setValueNotifyingHost(p.dub_enabled ? 1.0f : 0.0f);
+    dubEc->setValueNotifyingHost(dubEc->convertTo0to1(p.dub_echo));
+    dubRv->setValueNotifyingHost(dubRv->convertTo0to1(p.dub_reverb));
+    dubFb->setValueNotifyingHost(dubFb->convertTo0to1(p.dub_feedback));
+    dubOf->setValueNotifyingHost(dubOf->convertTo0to1(p.dub_offset));
+    dubAp->setValueNotifyingHost(dubAp->convertTo0to1(p.dub_autopan));
+    dubFl->setValueNotifyingHost(dubFl->convertTo0to1(p.dub_fullness));
+    dubSp->setValueNotifyingHost(dubSp->convertTo0to1(p.dub_space));
+    dubDr->setValueNotifyingHost(dubDr->convertTo0to1(p.dub_dry));
+    dubWt->setValueNotifyingHost(dubWt->convertTo0to1(p.dub_wet));
+    dubVl->setValueNotifyingHost(dubVl->convertTo0to1(p.dub_volume));
 }
 
 const juce::String HendrixFlangerProcessor::getProgramName(int index)

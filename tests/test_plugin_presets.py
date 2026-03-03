@@ -21,6 +21,8 @@ PRESET_NAMES = [
     "Resonant Space",
     "Random Chop",
     "Glitch Hollow",
+    "Dub Tape",
+    "Space Echo",
 ]
 
 

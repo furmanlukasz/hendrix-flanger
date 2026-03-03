@@ -39,6 +39,7 @@ set(PLUGIN_SOURCES
     src/dsp/LFO.h
     src/dsp/EnvelopeFollower.h
     src/dsp/ThroughZeroFlanger.h
+    src/dsp/DubEcho.h
 )
 
 juce_add_plugin(HendrixFlanger
