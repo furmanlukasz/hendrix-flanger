@@ -81,10 +81,20 @@ HendrixFlangerEditor::HendrixFlangerEditor(HendrixFlangerProcessor& p)
     dubEnabledAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         apvts, "dub_enabled", dubEnabledButton);
 
-    // Row 4: Echo, Reverb, Feedback, Offset, Autopan
-    setupSlider(dubEchoSlider, dubEchoLabel, "Echo");
-    dubEchoAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        apvts, "dub_echo", dubEchoSlider);
+    // Row 4: Echo Div (ComboBox), Reverb, Feedback, Offset, Autopan
+    dubEchoDivBox.addItemList(noteDivisionLabels, 1);
+    dubEchoDivBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff2a2a3e));
+    dubEchoDivBox.setColour(juce::ComboBox::textColourId, juce::Colours::white);
+    dubEchoDivBox.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff555577));
+    addAndMakeVisible(dubEchoDivBox);
+    dubEchoDivAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, "dub_echo", dubEchoDivBox);
+
+    dubEchoDivLabel.setText("Echo", juce::dontSendNotification);
+    dubEchoDivLabel.setJustificationType(juce::Justification::centred);
+    dubEchoDivLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
+    dubEchoDivLabel.setFont(juce::Font(13.0f));
+    addAndMakeVisible(dubEchoDivLabel);
 
     setupSlider(dubReverbSlider, dubReverbLabel, "Reverb");
     dubReverbAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -102,7 +112,11 @@ HendrixFlangerEditor::HendrixFlangerEditor(HendrixFlangerProcessor& p)
     dubAutopanAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         apvts, "dub_autopan", dubAutopanSlider);
 
-    // Row 5: Fullness, Space, Dry, Wet, Volume
+    // Row 5: BPM, Fullness, Space, Dry, Wet, Volume
+    setupSlider(dubBpmSlider, dubBpmLabel, "BPM");
+    dubBpmAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        apvts, "dub_bpm", dubBpmSlider);
+
     setupSlider(dubFullnessSlider, dubFullnessLabel, "Fullness");
     dubFullnessAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         apvts, "dub_fullness", dubFullnessSlider);
@@ -123,10 +137,54 @@ HendrixFlangerEditor::HendrixFlangerEditor(HendrixFlangerProcessor& p)
     dubVolumeAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         apvts, "dub_volume", dubVolumeSlider);
 
-    setSize(540, 740);
+    // Listen for dub_enabled changes to toggle visibility
+    apvts.addParameterListener("dub_enabled", this);
+
+    // Set initial visibility (dub off by default)
+    updateDubVisibility();
 }
 
-HendrixFlangerEditor::~HendrixFlangerEditor() {}
+HendrixFlangerEditor::~HendrixFlangerEditor()
+{
+    processorRef.getAPVTS().removeParameterListener("dub_enabled", this);
+}
+
+void HendrixFlangerEditor::parameterChanged(const juce::String& parameterID, float /*newValue*/)
+{
+    if (parameterID == "dub_enabled")
+        juce::MessageManager::callAsync([this]() { updateDubVisibility(); });
+}
+
+void HendrixFlangerEditor::updateDubVisibility()
+{
+    bool dubOn = dubEnabledButton.getToggleState();
+
+    // Toggle all dub controls (keep dubEnabledButton always visible)
+    dubEchoDivBox.setVisible(dubOn);
+    dubEchoDivLabel.setVisible(dubOn);
+    dubBpmSlider.setVisible(dubOn);
+    dubBpmLabel.setVisible(dubOn);
+    dubReverbSlider.setVisible(dubOn);
+    dubReverbLabel.setVisible(dubOn);
+    dubFeedbackSlider.setVisible(dubOn);
+    dubFeedbackLabel.setVisible(dubOn);
+    dubOffsetSlider.setVisible(dubOn);
+    dubOffsetLabel.setVisible(dubOn);
+    dubAutopanSlider.setVisible(dubOn);
+    dubAutopanLabel.setVisible(dubOn);
+    dubFullnessSlider.setVisible(dubOn);
+    dubFullnessLabel.setVisible(dubOn);
+    dubSpaceSlider.setVisible(dubOn);
+    dubSpaceLabel.setVisible(dubOn);
+    dubDrySlider.setVisible(dubOn);
+    dubDryLabel.setVisible(dubOn);
+    dubWetSlider.setVisible(dubOn);
+    dubWetLabel.setVisible(dubOn);
+    dubVolumeSlider.setVisible(dubOn);
+    dubVolumeLabel.setVisible(dubOn);
+
+    setSize(540, dubOn ? kHeightDubOn : kHeightDubOff);
+}
 
 void HendrixFlangerEditor::setupSlider(juce::Slider& slider, juce::Label& label,
                                         const juce::String& text)
@@ -183,7 +241,7 @@ void HendrixFlangerEditor::paint(juce::Graphics& g)
     g.drawHorizontalLine(row2Bottom + 2, lineL, lineR);
     g.drawHorizontalLine(row3Bottom + 2, lineL, lineR);
 
-    // Dub Echo section header
+    // Dub Echo section header (always visible)
     int dubHeaderY = row3Bottom + spacing;
     g.setColour(juce::Colour(0xffff6b35));
     g.setFont(juce::Font(18.0f, juce::Font::bold));
@@ -191,10 +249,13 @@ void HendrixFlangerEditor::paint(juce::Graphics& g)
                      juce::Rectangle<int>(15, dubHeaderY, 140, 30),
                      juce::Justification::centredLeft, 1);
 
-    // Separator between dub echo rows
-    int dubRow4Bottom = dubHeaderY + 30 + knobH;
-    g.setColour(juce::Colour(0xff333355));
-    g.drawHorizontalLine(dubRow4Bottom + 2, lineL, lineR);
+    // Separator between dub echo rows (only when expanded)
+    if (getHeight() > kHeightDubOff)
+    {
+        int dubRow4Bottom = dubHeaderY + 30 + knobH;
+        g.setColour(juce::Colour(0xff333355));
+        g.drawHorizontalLine(dubRow4Bottom + 2, lineL, lineR);
+    }
 }
 
 void HendrixFlangerEditor::resized()
@@ -266,56 +327,63 @@ void HendrixFlangerEditor::resized()
 
     // ===== DUB ECHO SECTION =====
 
-    // Dub Echo header + enable toggle
+    // Dub Echo header + enable toggle (always visible)
     auto dubHeader = area.removeFromTop(30);
     dubHeader.removeFromLeft(140); // space for painted "DUB ECHO" title
     dubEnabledButton.setBounds(dubHeader.removeFromLeft(120).reduced(0, 2));
 
-    // ===== Row 4: Echo, Reverb, Feedback, Offset, Autopan =====
-    auto row4 = area.removeFromTop(knobH);
-    colW = row4.getWidth() / 5;
+    if (dubEnabledButton.getToggleState())
+    {
+        // ===== Row 4: Echo Div, Reverb, Feedback, Offset, Autopan =====
+        auto row4 = area.removeFromTop(knobH);
+        colW = row4.getWidth() / 5;
 
-    auto echoArea = row4.removeFromLeft(colW);
-    dubEchoLabel.setBounds(echoArea.removeFromTop(labelH));
-    dubEchoSlider.setBounds(echoArea);
+        auto echoArea = row4.removeFromLeft(colW);
+        dubEchoDivLabel.setBounds(echoArea.removeFromTop(labelH));
+        dubEchoDivBox.setBounds(echoArea.reduced(8, (echoArea.getHeight() - 30) / 2));
 
-    auto revArea = row4.removeFromLeft(colW);
-    dubReverbLabel.setBounds(revArea.removeFromTop(labelH));
-    dubReverbSlider.setBounds(revArea);
+        auto revArea = row4.removeFromLeft(colW);
+        dubReverbLabel.setBounds(revArea.removeFromTop(labelH));
+        dubReverbSlider.setBounds(revArea);
 
-    auto dfbArea = row4.removeFromLeft(colW);
-    dubFeedbackLabel.setBounds(dfbArea.removeFromTop(labelH));
-    dubFeedbackSlider.setBounds(dfbArea);
+        auto dfbArea = row4.removeFromLeft(colW);
+        dubFeedbackLabel.setBounds(dfbArea.removeFromTop(labelH));
+        dubFeedbackSlider.setBounds(dfbArea);
 
-    auto offArea = row4.removeFromLeft(colW);
-    dubOffsetLabel.setBounds(offArea.removeFromTop(labelH));
-    dubOffsetSlider.setBounds(offArea);
+        auto offArea = row4.removeFromLeft(colW);
+        dubOffsetLabel.setBounds(offArea.removeFromTop(labelH));
+        dubOffsetSlider.setBounds(offArea);
 
-    dubAutopanLabel.setBounds(row4.removeFromTop(labelH));
-    dubAutopanSlider.setBounds(row4);
+        dubAutopanLabel.setBounds(row4.removeFromTop(labelH));
+        dubAutopanSlider.setBounds(row4);
 
-    area.removeFromTop(spacing);
+        area.removeFromTop(spacing);
 
-    // ===== Row 5: Fullness, Space, Dry, Wet, Volume =====
-    auto row5 = area.removeFromTop(knobH);
-    colW = row5.getWidth() / 5;
+        // ===== Row 5: BPM, Fullness, Space, Dry, Wet, Volume =====
+        auto row5 = area.removeFromTop(knobH);
+        colW = row5.getWidth() / 6;
 
-    auto fullArea = row5.removeFromLeft(colW);
-    dubFullnessLabel.setBounds(fullArea.removeFromTop(labelH));
-    dubFullnessSlider.setBounds(fullArea);
+        auto bpmArea = row5.removeFromLeft(colW);
+        dubBpmLabel.setBounds(bpmArea.removeFromTop(labelH));
+        dubBpmSlider.setBounds(bpmArea);
 
-    auto spArea = row5.removeFromLeft(colW);
-    dubSpaceLabel.setBounds(spArea.removeFromTop(labelH));
-    dubSpaceSlider.setBounds(spArea);
+        auto fullArea = row5.removeFromLeft(colW);
+        dubFullnessLabel.setBounds(fullArea.removeFromTop(labelH));
+        dubFullnessSlider.setBounds(fullArea);
 
-    auto dryArea = row5.removeFromLeft(colW);
-    dubDryLabel.setBounds(dryArea.removeFromTop(labelH));
-    dubDrySlider.setBounds(dryArea);
+        auto spArea = row5.removeFromLeft(colW);
+        dubSpaceLabel.setBounds(spArea.removeFromTop(labelH));
+        dubSpaceSlider.setBounds(spArea);
 
-    auto wetArea = row5.removeFromLeft(colW);
-    dubWetLabel.setBounds(wetArea.removeFromTop(labelH));
-    dubWetSlider.setBounds(wetArea);
+        auto dryArea = row5.removeFromLeft(colW);
+        dubDryLabel.setBounds(dryArea.removeFromTop(labelH));
+        dubDrySlider.setBounds(dryArea);
 
-    dubVolumeLabel.setBounds(row5.removeFromTop(labelH));
-    dubVolumeSlider.setBounds(row5);
+        auto wetArea = row5.removeFromLeft(colW);
+        dubWetLabel.setBounds(wetArea.removeFromTop(labelH));
+        dubWetSlider.setBounds(wetArea);
+
+        dubVolumeLabel.setBounds(row5.removeFromTop(labelH));
+        dubVolumeSlider.setBounds(row5);
+    }
 }

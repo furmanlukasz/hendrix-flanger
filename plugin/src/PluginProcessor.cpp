@@ -89,12 +89,18 @@ HendrixFlangerProcessor::createParameterLayout()
         "Dub Echo",
         false));
 
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{"dub_echo", 2},
+        "Echo Div",
+        noteDivisionLabels,
+        6));  // default: 1/8 note
+
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{"dub_echo", 1},
-        "Echo",
-        juce::NormalisableRange<float>(0.0f, 1000.0f, 0.1f, 0.5f),
-        300.0f,
-        juce::AudioParameterFloatAttributes().withLabel("ms")));
+        juce::ParameterID{"dub_bpm", 1},
+        "BPM",
+        juce::NormalisableRange<float>(40.0f, 300.0f, 0.1f),
+        120.0f,
+        juce::AudioParameterFloatAttributes().withLabel("bpm")));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"dub_reverb", 1},
@@ -222,7 +228,8 @@ void HendrixFlangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     // Read dub echo parameters
     bool  dubEnabled     = apvts.getRawParameterValue("dub_enabled")->load() > 0.5f;
-    float dubEchoMs      = apvts.getRawParameterValue("dub_echo")->load();
+    int   dubEchoDiv     = static_cast<int>(apvts.getRawParameterValue("dub_echo")->load());
+    float dubManualBpm   = apvts.getRawParameterValue("dub_bpm")->load();
     float dubReverbPct   = apvts.getRawParameterValue("dub_reverb")->load();
     float dubFeedbackPct = apvts.getRawParameterValue("dub_feedback")->load();
     float dubOffsetPct   = apvts.getRawParameterValue("dub_offset")->load();
@@ -243,6 +250,24 @@ void HendrixFlangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     flanger.setEnvAmount(envAmt);
     flanger.setLfoShape(lfoShape);
     flanger.setWarmth(warmthPct);
+
+    // Calculate echo time from note division + BPM (host or manual fallback)
+    float effectiveBpm = dubManualBpm;
+    if (auto* playHead = getPlayHead())
+    {
+        if (auto posInfo = playHead->getPosition())
+        {
+            if (auto bpm = posInfo->getBpm())
+            {
+                if (*bpm > 0.0)
+                    effectiveBpm = static_cast<float>(*bpm);
+            }
+        }
+    }
+
+    dubEchoDiv = juce::jlimit(0, numNoteDivisions - 1, dubEchoDiv);
+    float dubEchoMs = (60000.0f / effectiveBpm) * noteDivisionMultipliers[dubEchoDiv];
+    dubEchoMs = juce::jlimit(0.0f, 1000.0f, dubEchoMs);
 
     // Update dub echo parameters
     dubEcho.setEcho(dubEchoMs);
@@ -360,7 +385,7 @@ void HendrixFlangerProcessor::setCurrentProgram(int index)
     auto* dubVl   = apvts.getParameter("dub_volume");
 
     dubEn->setValueNotifyingHost(p.dub_enabled ? 1.0f : 0.0f);
-    dubEc->setValueNotifyingHost(dubEc->convertTo0to1(p.dub_echo));
+    dubEc->setValueNotifyingHost(dubEc->convertTo0to1(static_cast<float>(p.dub_echo_div)));
     dubRv->setValueNotifyingHost(dubRv->convertTo0to1(p.dub_reverb));
     dubFb->setValueNotifyingHost(dubFb->convertTo0to1(p.dub_feedback));
     dubOf->setValueNotifyingHost(dubOf->convertTo0to1(p.dub_offset));
