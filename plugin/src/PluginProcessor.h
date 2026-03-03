@@ -39,16 +39,22 @@ static const FactoryPreset factoryPresets[] =
     { "Dub Plate",          0.10f, 65.0f, 3.5f,  75.0f, 180.0f, true, 50.0f, 0, 36.0f, 61.0f },
 
     // "Lead Shimmer" — crawling TZF, max feedback edge, warmth pushes harmonics, less env
-    { "Lead Shimmer",       0.07f, 80.0f, 4.0f,  88.0f, 150.0f, true, 15.0f, 0, 55.0f, 68.0f },
+    { "Lead Shimmer",       0.07f, 80.0f, 4.0f,  88.0f, 150.0f, true, 15.0f, 0, 20.0f, 68.0f },
 
     // "Dub Siren" — very slow with triangle LFO, high feedback resonance, warm and deep
-    { "Dub Siren",          0.05f, 70.0f, 5.5f,  80.0f, 120.0f, true,  0.0f, 1, 45.0f, 65.0f },
+    { "Dub Siren",          0.05f, 70.0f, 5.5f,  60.0f, 120.0f, true,  0.0f, 1, 45.0f, 65.0f },
 
     // "Warm Nebula" — glacial sweep, moderate feedback, max warmth saturation, wide
-    { "Warm Nebula",        0.08f, 50.0f, 3.0f,  60.0f, 180.0f, true, 30.0f, 0, 80.0f, 58.0f },
+    { "Warm Nebula",        0.08f, 50.0f, 3.0f,  60.0f, 180.0f, true, 30.0f, 0, 55.0f, 58.0f },
 
     // "Resonant Space" — slow TZF, negative feedback for hollow tone, warm overtones
     { "Resonant Space",     0.12f, 75.0f, 4.5f, -70.0f, 140.0f, true, 20.0f, 0, 40.0f, 62.0f },
+
+    // "Random Chop" — fast S&H, long delay, positive feedback, warm and env-reactive
+    { "Random Chop",        6.91f, 80.0f, 7.59f, 49.0f, 150.0f, true, 53.4f, 2, 68.3f, 44.4f },
+
+    // "Glitch Hollow" — fast S&H, short delay, negative feedback, wide stereo
+    { "Glitch Hollow",      6.91f, 63.2f, 2.48f,-50.7f, 180.0f, true, 53.4f, 2, 41.6f, 45.0f },
 };
 
 static constexpr int numFactoryPresets = static_cast<int>(sizeof(factoryPresets) / sizeof(factoryPresets[0]));

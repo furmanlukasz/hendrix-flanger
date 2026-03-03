@@ -19,6 +19,8 @@ PRESET_NAMES = [
     "Dub Siren",
     "Warm Nebula",
     "Resonant Space",
+    "Random Chop",
+    "Glitch Hollow",
 ]
 
 
