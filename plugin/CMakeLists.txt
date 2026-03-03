@@ -35,6 +35,7 @@ set(PLUGIN_SOURCES
     src/PluginEditor.cpp
     src/PluginEditor.h
     src/dsp/DelayLine.h
+    src/dsp/DCBlocker.h
     src/dsp/LFO.h
     src/dsp/EnvelopeFollower.h
     src/dsp/ThroughZeroFlanger.h

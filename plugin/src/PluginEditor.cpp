@@ -5,6 +5,23 @@ HendrixFlangerEditor::HendrixFlangerEditor(HendrixFlangerProcessor& p)
 {
     auto& apvts = processorRef.getAPVTS();
 
+    // --- Preset selector ---
+    for (int i = 0; i < numFactoryPresets; ++i)
+        presetBox.addItem(factoryPresets[i].name, i + 1);
+
+    presetBox.setSelectedId(processorRef.getCurrentProgram() + 1, juce::dontSendNotification);
+    presetBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff2a2a3e));
+    presetBox.setColour(juce::ComboBox::textColourId, juce::Colour(0xffffaa00));
+    presetBox.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff555577));
+    presetBox.setColour(juce::ComboBox::arrowColourId, juce::Colour(0xffff6b35));
+    presetBox.onChange = [this]()
+    {
+        int idx = presetBox.getSelectedId() - 1;
+        if (idx >= 0)
+            processorRef.setCurrentProgram(idx);
+    };
+    addAndMakeVisible(presetBox);
+
     // Row 1: Rate, Depth, Manual
     setupSlider(rateSlider, rateLabel, "Speed");
     rateAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -31,7 +48,7 @@ HendrixFlangerEditor::HendrixFlangerEditor(HendrixFlangerProcessor& p)
     mixAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         apvts, "dry_wet", mixSlider);
 
-    // Row 3: Through Zero, LFO Shape, Envelope
+    // Row 3: Through Zero, LFO Shape, Envelope, Warmth
     addAndMakeVisible(throughZeroButton);
     throughZeroButton.setColour(juce::ToggleButton::textColourId, juce::Colours::white);
     throughZeroButton.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xffff6b35));
@@ -50,7 +67,11 @@ HendrixFlangerEditor::HendrixFlangerEditor(HendrixFlangerProcessor& p)
     envAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         apvts, "env_amount", envSlider);
 
-    setSize(540, 400);
+    setupSlider(warmthSlider, warmthLabel, "Warmth");
+    warmthAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        apvts, "warmth", warmthSlider);
+
+    setSize(540, 440);
 }
 
 HendrixFlangerEditor::~HendrixFlangerEditor() {}
@@ -83,15 +104,17 @@ void HendrixFlangerEditor::paint(juce::Graphics& g)
         false));
     g.fillRect(bounds);
 
-    // Title
+    // Title (left-aligned to make room for preset dropdown)
     g.setColour(juce::Colour(0xffff6b35));
-    g.setFont(juce::Font(24.0f, juce::Font::bold));
-    g.drawFittedText("HENDRIX FLANGER", getLocalBounds().removeFromTop(45),
-                     juce::Justification::centred, 1);
+    g.setFont(juce::Font(22.0f, juce::Font::bold));
+    auto titleArea = getLocalBounds().removeFromTop(45);
+    g.drawFittedText("HENDRIX FLANGER", titleArea.removeFromLeft(220).reduced(15, 0),
+                     juce::Justification::centredLeft, 1);
 
     // Subtle separator lines
     g.setColour(juce::Colour(0xff333355));
-    int row1Bottom = 45 + 130;
+    int headerH = 45;
+    int row1Bottom = headerH + 130;
     int row2Bottom = row1Bottom + 130;
     g.drawHorizontalLine(row1Bottom + 2, 20.0f, static_cast<float>(getWidth() - 20));
     g.drawHorizontalLine(row2Bottom + 2, 20.0f, static_cast<float>(getWidth() - 20));
@@ -100,7 +123,11 @@ void HendrixFlangerEditor::paint(juce::Graphics& g)
 void HendrixFlangerEditor::resized()
 {
     auto area = getLocalBounds().reduced(10);
-    area.removeFromTop(45); // title
+
+    // Header: title (painted) + preset dropdown
+    auto header = area.removeFromTop(45);
+    header.removeFromLeft(210); // space for painted title
+    presetBox.setBounds(header.reduced(5, 8));
 
     int knobH = 130;
     int labelH = 18;
@@ -139,16 +166,20 @@ void HendrixFlangerEditor::resized()
 
     area.removeFromTop(8);
 
-    // Row 3: Through Zero, LFO Shape, Envelope
-    auto row3 = area.removeFromTop(80);
-    colW = row3.getWidth() / 3;
+    // Row 3: Through Zero, LFO Shape, Envelope, Warmth (4 columns)
+    auto row3 = area.removeFromTop(90);
+    colW = row3.getWidth() / 4;
 
     auto tzArea = row3.removeFromLeft(colW);
-    throughZeroButton.setBounds(tzArea.reduced(10, 20));
+    throughZeroButton.setBounds(tzArea.reduced(5, 25));
 
     auto shapeArea = row3.removeFromLeft(colW);
-    lfoShapeBox.setBounds(shapeArea.reduced(20, 25));
+    lfoShapeBox.setBounds(shapeArea.reduced(10, 28));
 
-    envLabel.setBounds(row3.removeFromTop(labelH));
-    envSlider.setBounds(row3);
+    auto envArea = row3.removeFromLeft(colW);
+    envLabel.setBounds(envArea.removeFromTop(labelH));
+    envSlider.setBounds(envArea);
+
+    warmthLabel.setBounds(row3.removeFromTop(labelH));
+    warmthSlider.setBounds(row3);
 }

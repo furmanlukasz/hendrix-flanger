@@ -3,6 +3,7 @@ name: Build Hendrix Flanger
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -62,6 +63,25 @@ jobs:
         path: plugin/artifacts/AU/
         if-no-files-found: warn
 
+    - name: Zip macOS VST3 for release
+      if: startsWith(github.ref, 'refs/tags/v')
+      working-directory: plugin/artifacts
+      run: zip -r ../../HendrixFlanger-macOS-VST3.zip VST3/
+
+    - name: Zip macOS AU for release
+      if: startsWith(github.ref, 'refs/tags/v')
+      working-directory: plugin/artifacts
+      run: zip -r ../../HendrixFlanger-macOS-AU.zip AU/
+
+    - name: Upload release zips
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-macos
+        path: |
+          HendrixFlanger-macOS-VST3.zip
+          HendrixFlanger-macOS-AU.zip
+
   build-windows:
     runs-on: windows-latest
 
@@ -93,3 +113,46 @@ jobs:
         name: HendrixFlanger-Windows-VST3
         path: plugin/artifacts/VST3/
         if-no-files-found: warn
+
+    - name: Zip Windows VST3 for release
+      if: startsWith(github.ref, 'refs/tags/v')
+      working-directory: plugin/artifacts
+      shell: powershell
+      run: Compress-Archive -Path "VST3/*" -DestinationPath "../../HendrixFlanger-Windows-VST3.zip"
+
+    - name: Upload release zip
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-windows
+        path: HendrixFlanger-Windows-VST3.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download macOS artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: release-macos
+
+    - name: Download Windows artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: release-windows
+
+    - name: List release files
+      run: ls -la *.zip
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        files: |
+          HendrixFlanger-macOS-VST3.zip
+          HendrixFlanger-macOS-AU.zip
+          HendrixFlanger-Windows-VST3.zip

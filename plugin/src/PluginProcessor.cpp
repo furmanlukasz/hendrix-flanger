@@ -70,6 +70,13 @@ HendrixFlangerProcessor::createParameterLayout()
         0));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"warmth", 1},
+        "Warmth",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+        0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"dry_wet", 1},
         "Mix",
         juce::NormalisableRange<float>(0.0f, 100.0f, 0.1f),
@@ -82,9 +89,23 @@ HendrixFlangerProcessor::createParameterLayout()
 void HendrixFlangerProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     flanger.prepare(sampleRate, samplesPerBlock);
+
+    // Pre-allocate dry buffer so processBlock never touches the heap
+    dryBuffer.setSize(2, samplesPerBlock, false, false, true);
+
+    // ~5 ms smoothing time constant for dry/wet mix
+    dryWetSmoothingCoeff = static_cast<float>(std::exp(-1.0 / (sampleRate * 0.005)));
+    smoothedDryWet = apvts.getRawParameterValue("dry_wet")->load() / 100.0f;
+    dryWetNeedsSnap = false;
 }
 
 void HendrixFlangerProcessor::releaseResources() {}
+
+void HendrixFlangerProcessor::reset()
+{
+    flanger.reset();
+    dryWetNeedsSnap = true;
+}
 
 bool HendrixFlangerProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
@@ -118,7 +139,8 @@ void HendrixFlangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     bool  tzEnabled   = apvts.getRawParameterValue("through_zero")->load() > 0.5f;
     float envAmt      = apvts.getRawParameterValue("env_amount")->load();
     int   lfoShape    = static_cast<int>(apvts.getRawParameterValue("lfo_shape")->load());
-    float dryWet      = apvts.getRawParameterValue("dry_wet")->load() / 100.0f;
+    float warmthPct   = apvts.getRawParameterValue("warmth")->load();
+    float dryWetTarget = apvts.getRawParameterValue("dry_wet")->load() / 100.0f;
 
     // Update flanger parameters
     flanger.setRate(rateHz);
@@ -129,22 +151,43 @@ void HendrixFlangerProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     flanger.setThroughZero(tzEnabled);
     flanger.setEnvAmount(envAmt);
     flanger.setLfoShape(lfoShape);
+    flanger.setWarmth(warmthPct);
 
-    // Store dry signal for mix
-    juce::AudioBuffer<float> dryBuffer;
-    dryBuffer.makeCopyOf(buffer);
+    // Snap dry/wet smoothing after reset (deferred so target is current)
+    if (dryWetNeedsSnap)
+    {
+        smoothedDryWet = dryWetTarget;
+        dryWetNeedsSnap = false;
+    }
+
+    // Store dry signal for mix (uses pre-allocated buffer — no heap alloc)
+    int numCh = buffer.getNumChannels();
+    int numSamp = buffer.getNumSamples();
+    if (dryBuffer.getNumChannels() < numCh || dryBuffer.getNumSamples() < numSamp)
+        dryBuffer.setSize(numCh, numSamp, false, false, true);
+    for (int ch = 0; ch < numCh; ++ch)
+        dryBuffer.copyFrom(ch, 0, buffer, ch, 0, numSamp);
 
     // Process through flanger
     flanger.process(buffer);
 
-    // Dry/wet mix
-    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    // Dry/wet mix with per-sample smoothing (prevents pops/clicks)
+    const float coeff = dryWetSmoothingCoeff;
+    const float oneMinusCoeff = 1.0f - coeff;
+    float dw = smoothedDryWet;
+    for (int ch = 0; ch < numCh; ++ch)
     {
         auto* wet = buffer.getWritePointer(ch);
         auto* dry = dryBuffer.getReadPointer(ch);
-        for (int s = 0; s < buffer.getNumSamples(); ++s)
-            wet[s] = dry[s] * (1.0f - dryWet) + wet[s] * dryWet;
+        float dwCh = dw;  // Both channels use same starting point
+        for (int s = 0; s < numSamp; ++s)
+        {
+            dwCh = dwCh * coeff + dryWetTarget * oneMinusCoeff;
+            wet[s] = dry[s] * (1.0f - dwCh) + wet[s] * dwCh;
+        }
+        dw = dwCh;  // After first channel, second channel continues from same state
     }
+    smoothedDryWet = dw;
 }
 
 juce::AudioProcessorEditor* HendrixFlangerProcessor::createEditor()
@@ -164,6 +207,44 @@ void HendrixFlangerProcessor::setStateInformation(const void* data, int sizeInBy
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
     if (xml != nullptr && xml->hasTagName(apvts.state.getType()))
         apvts.replaceState(juce::ValueTree::fromXml(*xml));
+}
+
+void HendrixFlangerProcessor::setCurrentProgram(int index)
+{
+    if (index < 0 || index >= numFactoryPresets)
+        return;
+
+    currentPreset = index;
+    const auto& p = factoryPresets[index];
+
+    auto* rate    = apvts.getParameter("rate_hz");
+    auto* dep     = apvts.getParameter("depth");
+    auto* manual  = apvts.getParameter("manual_ms");
+    auto* fb      = apvts.getParameter("feedback");
+    auto* st      = apvts.getParameter("stereo_spread");
+    auto* tz      = apvts.getParameter("through_zero");
+    auto* env     = apvts.getParameter("env_amount");
+    auto* shape   = apvts.getParameter("lfo_shape");
+    auto* warm    = apvts.getParameter("warmth");
+    auto* mix     = apvts.getParameter("dry_wet");
+
+    rate->setValueNotifyingHost(rate->convertTo0to1(p.rate_hz));
+    dep->setValueNotifyingHost(dep->convertTo0to1(p.depth));
+    manual->setValueNotifyingHost(manual->convertTo0to1(p.manual_ms));
+    fb->setValueNotifyingHost(fb->convertTo0to1(p.feedback));
+    st->setValueNotifyingHost(st->convertTo0to1(p.stereo_spread));
+    tz->setValueNotifyingHost(p.through_zero ? 1.0f : 0.0f);
+    env->setValueNotifyingHost(env->convertTo0to1(p.env_amount));
+    shape->setValueNotifyingHost(shape->convertTo0to1(static_cast<float>(p.lfo_shape)));
+    warm->setValueNotifyingHost(warm->convertTo0to1(p.warmth));
+    mix->setValueNotifyingHost(mix->convertTo0to1(p.dry_wet));
+}
+
+const juce::String HendrixFlangerProcessor::getProgramName(int index)
+{
+    if (index >= 0 && index < numFactoryPresets)
+        return factoryPresets[index].name;
+    return {};
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

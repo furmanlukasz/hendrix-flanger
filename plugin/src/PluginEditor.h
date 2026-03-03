@@ -14,14 +14,17 @@ public:
 private:
     HendrixFlangerProcessor& processorRef;
 
+    // --- Preset selector ---
+    juce::ComboBox presetBox;
+
     // --- Knobs ---
     juce::Slider rateSlider, depthSlider, manualSlider;
     juce::Slider feedbackSlider, stereoSlider, mixSlider;
-    juce::Slider envSlider;
+    juce::Slider envSlider, warmthSlider;
 
     juce::Label rateLabel, depthLabel, manualLabel;
     juce::Label feedbackLabel, stereoLabel, mixLabel;
-    juce::Label envLabel;
+    juce::Label envLabel, warmthLabel;
 
     // --- Toggles / Combos ---
     juce::ToggleButton throughZeroButton { "Through Zero" };
@@ -29,7 +32,7 @@ private:
 
     // --- Attachments ---
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-        rateAtt, depthAtt, manualAtt, feedbackAtt, stereoAtt, mixAtt, envAtt;
+        rateAtt, depthAtt, manualAtt, feedbackAtt, stereoAtt, mixAtt, envAtt, warmthAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> tzAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfoShapeAtt;
 
